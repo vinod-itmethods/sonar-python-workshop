@@ -19,4 +19,6 @@ def test_reminder_email_contains_customer_name():
 
 
 def test_reminder_id_is_stable():
-    assert reminder_id("INV-1001") == reminder_id("INV-1001")
+    first = reminder_id("INV-1001")
+    second = reminder_id("INV-1001")
+    assert first == second
