@@ -125,15 +125,38 @@ jobs:
         continue-on-error: true
 
       # ---------------------------------------------------------------------
-      # STEP 4 - SonarQube scan (SonarScanner 5 via the official action)
+      # STEP 4 - SonarQube scan
       #
-      # sonarqube-scan-action@v5 wraps the SonarScanner CLI. It automatically
+      # sonarqube-scan-action wraps the SonarScanner CLI. It automatically
       # reads sonar-project.properties from the repo root, and on a
       # pull_request event it injects the PR key, branch and base branch so
       # SonarQube Cloud knows which PR to decorate.
+      #
+      # WHY v6 AND NOT v5 - worth knowing before someone asks:
+      #
+      # This was originally pinned to @v5. The first CI run on this repo
+      # emitted this warning from the action itself:
+      #
+      #   "This version of the SonarQube Scanner GitHub Action is no longer
+      #    supported and contains a security vulnerability. Please update your
+      #    workflow to use sonarsource/sonarqube-scan-action@v6"
+      #
+      # Shipping a known-vulnerable action inside a SECURITY demo is not a
+      # great look, so this is now @v6. Nothing else had to change - the
+      # inputs, env vars and sonar-project.properties are all identical.
+      #
+      # ALSO CLEAR UP A COMMON CONFUSION: the vN here is the *GitHub Action's*
+      # version, NOT the SonarScanner CLI version. v6 currently bundles
+      # SonarScanner CLI 7.x. There is no such thing as "the v5 scanner"
+      # in the sense people usually mean.
+      #
+      # To pin the action by commit SHA instead of a moving tag (which is the
+      # supply-chain-hardened option worth mentioning to a security-minded
+      # audience):
+      #   uses: SonarSource/sonarqube-scan-action@<full-40-char-sha>
       # ---------------------------------------------------------------------
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           # The only secret involved. Set it in repo Settings -> Secrets and
           # variables -> Actions. Never commit it, never echo it.

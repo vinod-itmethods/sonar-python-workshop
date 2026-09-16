@@ -26,7 +26,7 @@ Sonar for IDE connected mode.
 | **GitHub repo** | `vinod-org/sonar-python-workshop` |
 | **Sonar organization** | `itmethods-inc` |
 | **Sonar project key** | `itmethods-inc_sonar-python-workshop` |
-| **Scanner** | `SonarSource/sonarqube-scan-action@v5` |
+| **Scanner** | `SonarSource/sonarqube-scan-action@v6` |
 | **Language** | Python 3.11+ |
 | **Tests** | 17 passing, ~27% total coverage (by design) |
 
