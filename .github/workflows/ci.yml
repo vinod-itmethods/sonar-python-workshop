@@ -1,0 +1,192 @@
+###############################################################################
+# .github/workflows/ci.yml
+#
+# WHAT THIS DEMONSTRATES
+#   1. pytest runs the unit tests and WRITES the coverage + JUnit reports.
+#   2. SonarSource/sonarqube-scan-action@v5 scans the code and IMPORTS those
+#      reports into SonarQube Cloud.
+#   3. On a pull request, SonarQube Cloud posts back:
+#        - a "SonarQube Cloud" check run (the quality gate status), and
+#        - a summary comment from the SonarQube Cloud bot listing new issues.
+#      That is "PR decoration". It requires the SonarQube Cloud GitHub App to
+#      be installed on the org/repo - the token alone is not enough.
+#   4. On a push to main, the same scan updates the project's overall rating
+#      and recalculates the New Code baseline.
+#
+# SETUP CHECKLIST (do this before the demo):
+#   [ ] Import the repo in SonarQube Cloud (org: itmethods-inc), which
+#       installs the GitHub App and creates the project.
+#   [ ] In SonarQube Cloud: Project Settings -> Analysis Method ->
+#       turn OFF "Automatic Analysis". CI-based analysis and automatic
+#       analysis are mutually exclusive; leaving both on makes the scan fail
+#       with "you are running CI analysis while Automatic Analysis is
+#       enabled". This trips up almost everyone the first time.
+#   [ ] Generate a token: SonarQube Cloud -> My Account -> Security.
+#   [ ] Add it to GitHub: repo Settings -> Secrets and variables -> Actions ->
+#       New repository secret -> name it exactly SONAR_TOKEN.
+###############################################################################
+
+name: CI
+
+on:
+  push:
+    # Analysing main is what establishes the baseline that PRs are compared
+    # against. Without it, "New Code" has nothing to diff and PR decoration
+    # shows no meaningful numbers.
+    branches:
+      - main
+  pull_request:
+    # `types` defaults to opened/synchronize/reopened, which is what we want:
+    # every push to the PR branch re-scans and re-decorates.
+    branches:
+      - main
+
+# Cancel superseded runs so a quick second push during the demo does not leave
+# two scans racing to decorate the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Needed so the workflow (and the Sonar App acting on the PR) can attach
+  # check runs and comments to the pull request.
+  pull-requests: write
+  checks: write
+
+jobs:
+  build-and-analyze:
+    name: Test & SonarQube Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------------------------------------------------------------
+      # STEP 1 - Checkout
+      # ---------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # CRITICAL: fetch-depth: 0 gets the FULL git history.
+          #
+          # The scanner reads git blame to work out which lines are "new
+          # code" and who wrote them. With the default shallow clone
+          # (fetch-depth: 1) there is no history, so:
+          #   - new-code detection breaks,
+          #   - issues cannot be attributed to authors,
+          #   - PR decoration shows nothing useful.
+          #
+          # This is the #1 misconfiguration in Sonar CI setups. Worth calling
+          # out explicitly - you can even demo it by setting it to 1 and
+          # showing the warning in the scanner log.
+          fetch-depth: 0
+
+      # ---------------------------------------------------------------------
+      # STEP 2 - Python toolchain
+      # ---------------------------------------------------------------------
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          # Cache pip downloads so repeat demo runs are fast.
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          # Install the package itself so `import invoice` resolves the same
+          # way in CI as it does in the IDE.
+          pip install -e .
+
+      # ---------------------------------------------------------------------
+      # STEP 3 - Run the tests and PRODUCE the reports
+      #
+      # This step MUST run before the scan. Sonar does not execute tests; it
+      # only imports the XML files written here. Order matters.
+      # ---------------------------------------------------------------------
+      - name: Run unit tests with coverage
+        run: |
+          pytest \
+            --cov=src/invoice \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --junitxml=junit.xml \
+            -v
+        # `continue-on-error: true` is a DEMO CHOICE, not a best practice.
+        #
+        # Why it is here: during the workshop you will accept an AI CodeFix on
+        # tier_discount(), which intentionally breaks test_gold_tier_discount.
+        # Without this flag the job stops at pytest and you never reach the
+        # scan - so the audience never sees the Sonar result you were building
+        # towards.
+        #
+        # SAY THIS OUT LOUD: in a real pipeline you want the opposite. Failing
+        # tests should block the merge. Delete this line for production.
+        continue-on-error: true
+
+      # ---------------------------------------------------------------------
+      # STEP 4 - SonarQube scan (SonarScanner 5 via the official action)
+      #
+      # sonarqube-scan-action@v5 wraps the SonarScanner CLI. It automatically
+      # reads sonar-project.properties from the repo root, and on a
+      # pull_request event it injects the PR key, branch and base branch so
+      # SonarQube Cloud knows which PR to decorate.
+      # ---------------------------------------------------------------------
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          # The only secret involved. Set it in repo Settings -> Secrets and
+          # variables -> Actions. Never commit it, never echo it.
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          # SONAR_HOST_URL is intentionally NOT set. The action defaults to
+          # https://sonarcloud.io. You would only set it for a self-hosted
+          # SonarQube Server.
+        with:
+          # Extra CLI args layer on top of sonar-project.properties. Anything
+          # here overrides the file, which makes it a handy live-demo lever.
+          args: >
+            -Dsonar.qualitygate.wait=false
+          # DEMO TOGGLE: flip the above to
+          #     -Dsonar.qualitygate.wait=true
+          # and the step BLOCKS until SonarQube finishes computing the gate,
+          # then FAILS the job if the gate failed. That turns the quality gate
+          # into a hard merge blocker - pair it with a branch protection rule
+          # requiring this check to pass.
+          #
+          # It is set to false by default here so the demo pipeline always
+          # goes green and you stay in control of the narrative. Switch it to
+          # true when you want to show the gate actually stopping a merge.
+
+      # ---------------------------------------------------------------------
+      # STEP 5 - Publish test results in the GitHub UI (nice-to-have)
+      #
+      # Sonar shows coverage; this shows the individual test names inline on
+      # the PR, which makes the "this fix broke a test" moment much more
+      # obvious to the audience.
+      # ---------------------------------------------------------------------
+      - name: Publish test report
+        uses: mikepenz/action-junit-report@v4
+        # `always()` so the report still appears when tests failed - which is
+        # exactly the case where you most want to see it.
+        if: always()
+        with:
+          report_paths: junit.xml
+          check_name: Unit Test Results
+          # Do not fail the job here; the gate is Sonar's job in this demo.
+          fail_on_failure: false
+
+      # ---------------------------------------------------------------------
+      # STEP 6 - Keep the raw reports as artifacts
+      #
+      # Useful for the "where did the coverage number come from?" question -
+      # you can download coverage.xml and show the line-by-line hit counts.
+      # ---------------------------------------------------------------------
+      - name: Upload coverage and test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            junit.xml
+          retention-days: 7

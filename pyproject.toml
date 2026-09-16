@@ -1,0 +1,52 @@
+# Packaging + tool config for the workshop project.
+# Kept deliberately small: one file, no setup.py, no tox.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invoice-workshop"
+version = "0.1.0"
+description = "Python demo project for the SonarQube Cloud workshop"
+requires-python = ">=3.11"
+dependencies = [
+    # Only needed so src/invoice/web.py imports cleanly. The Flask app is
+    # never actually served - it exists for taint analysis.
+    "flask>=3.0",
+    "requests>=2.31",
+]
+
+# src-layout: the import package lives at src/invoice, so `import invoice`
+# only works after `pip install -e .`. This is what keeps the IDE, pytest and
+# CI all resolving imports identically.
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# `pythonpath = src` means pytest works even before an editable install,
+# which saves an awkward moment if you clone fresh mid-demo.
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+# Measure the package, not the tests.
+source = ["src/invoice"]
+branch = true
+# Mirror sonar.coverage.exclusions from sonar-project.properties. Keeping the
+# two in sync avoids the confusing case where coverage.py and Sonar disagree
+# about the denominator.
+omit = [
+    "*/generated/*",
+    "*/__init__.py",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+# Show which lines are missed in the CI log, so the terminal output and the
+# Sonar Coverage tab tell the same story.
+show_missing = true
+# No fail_under here on purpose: the QUALITY GATE in SonarQube Cloud is the
+# thing that should enforce a coverage threshold, not a local config file.
+# Enforcing it in two places means two sources of truth.

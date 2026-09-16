@@ -1,0 +1,55 @@
+{
+  // ---------------------------------------------------------------------------
+  // Sonar for IDE - CONNECTED MODE
+  //
+  // Connected mode is the whole point of this file. It binds the local editor
+  // to the SonarQube Cloud project, which upgrades the plugin from "generic
+  // linter" to "the same engine as CI":
+  //
+  //   * the IDE uses the project's server-side QUALITY PROFILE, so local
+  //     squiggles match exactly what the PR will report - no surprises;
+  //   * issues marked "Won't Fix" or "Safe" on the server stop showing up
+  //     locally;
+  //   * TAINT-ANALYSIS issues (the injection findings in web.py) appear in
+  //     the IDE. These are server-only rules - you do NOT get them in
+  //     standalone mode, so this is the single most convincing thing to show;
+  //   * AI CODEFIX becomes available on the lightbulb / Quick Fix menu.
+  //
+  // The connectionId below is a local label; it must match the connection you
+  // create in VS Code. Set it up once via:
+  //   Command Palette -> "SonarQube: Add SonarQube Cloud Connection"
+  // and paste a user token when prompted.
+  //
+  // The token is stored in the OS keychain by VS Code, NOT in this file.
+  // Never put a token in settings.json - it would be committed.
+  // ---------------------------------------------------------------------------
+  "sonarlint.connectedMode.project": {
+    "connectionId": "itmethods-inc",
+    "projectKey": "itmethods-inc_sonar-python-workshop"
+  },
+
+  // Tell the analyzer which interpreter to use for Python rules. Adjust if
+  // your venv lives elsewhere.
+  "sonarlint.pathToNodeExecutable": "",
+
+  // Show the rule description panel on click rather than requiring a
+  // separate command - smoother when presenting.
+  "sonarlint.rules": {
+    // DEMO TOGGLE: you can silence individual rules locally to show how a
+    // team suppresses noise. Uncomment to stop the bare-except rule firing
+    // in the editor (it will still fire in CI, which is the teaching point:
+    // local suppression does NOT change the quality gate).
+    // "python:S5754": { "level": "off" }
+  },
+
+  // --- Plain Python ergonomics so the demo feels like a normal project -----
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.unittestEnabled": false,
+  "python.analysis.extraPaths": ["src"],
+
+  // Show the coverage gutter after a pytest run, so the audience can see
+  // uncovered lines in the editor AND in SonarQube Cloud side by side.
+  "editor.rulers": [88],
+  "files.trimTrailingWhitespace": true
+}

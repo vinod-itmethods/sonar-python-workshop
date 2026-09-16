@@ -1,0 +1,15 @@
+{
+  // VS Code prompts anyone who opens this repo to install these.
+  // This is what makes the "Sonar for IDE" segment of the demo one click.
+  "recommendations": [
+    // SonarQube for IDE (formerly SonarLint). Provides the real-time
+    // squiggles, the rule descriptions, and - in connected mode - the
+    // AI CodeFix action directly in the editor.
+    "SonarSource.sonarlint-vscode",
+
+    // Python + Pylance, so the audience sees a normal Python setup and can
+    // tell which warnings come from Sonar versus the language server.
+    "ms-python.python",
+    "ms-python.vscode-pylance"
+  ]
+}

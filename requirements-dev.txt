@@ -1,0 +1,14 @@
+# Dev/CI dependencies. Pinned loosely so the demo does not break on a
+# transitive update, but not locked - this is a workshop repo, not production.
+
+# --- Test + coverage ----------------------------------------------------------
+pytest>=8.0
+# pytest-cov is what actually writes coverage.xml. Without it the
+# --cov flags in ci.yml fail and Sonar reports 0% coverage.
+pytest-cov>=5.0
+
+# --- Runtime deps needed for analysis to resolve imports ----------------------
+# Sonar's Python analyzer gives better results when third-party packages are
+# importable, so install them in CI even though the app is never served.
+flask>=3.0
+requests>=2.31

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test + coverage reports (generated; CI recreates them every run)
+.pytest_cache/
+.coverage
+coverage.xml
+junit.xml
+htmlcov/
+
+# Scanner working directory. The scanner writes its cache and report-task.txt
+# here; it should never be committed.
+.scannerwork/
+.sonar/
+
+# IDE
+.idea/
+*.swp
+
+# NOTE: .vscode/ is deliberately NOT ignored. The committed settings.json and
+# extensions.json are part of the demo - they make Sonar for IDE connected
+# mode work for anyone who clones this repo.
+
+# macOS
+.DS_Store
