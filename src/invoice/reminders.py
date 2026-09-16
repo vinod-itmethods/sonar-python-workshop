@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import random
+import os
+import secrets
 import subprocess
 from decimal import Decimal
 
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # NEW ISSUE - python:S2068 (hardcoded credentials). High-entropy value, so
 # Sonar will not dismiss it as a placeholder.
-SMTP_PASSWORD = "Rk9mBv3nXc6zQw2eTy5uIo8p"
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 # NEW ISSUE - python:S1192 (string literals should not be duplicated).
 # "payment_reminder" appears four times below instead of being a constant.
@@ -49,7 +50,7 @@ def reminder_id(invoice_id: str) -> str:
     NEW ISSUE - python:S4790 (weak hashing algorithm). MD5 again, but this
     time in NEW code - which is exactly the distinction the demo is making.
     """
-    return hashlib.md5(f"payment_reminder:{invoice_id}".encode()).hexdigest()
+    return hashlib.sha256(f"payment_reminder:{invoice_id}".encode()).hexdigest()
 
 
 def jitter_seconds() -> int:
@@ -59,7 +60,7 @@ def jitter_seconds() -> int:
     it is not security-relevant - which makes it a GREAT one to triage live
     as "Safe" with a justification, then show the triage sync to the IDE.
     """
-    return random.randint(0, 300)
+    return secrets.randbelow(301)
 
 
 def find_overdue_invoices(customer_id: str, min_days: str) -> list[str]:
@@ -75,54 +76,61 @@ def find_overdue_invoices(customer_id: str, min_days: str) -> list[str]:
     return _run_query(query)
 
 
+def _handle_overdue(invoice, dry_run, escalate, notify_sales, region):
+    """Handle a single invoice that is more than 30 days overdue."""
+    if escalate:
+        if region == "US":
+            if notify_sales:
+                _notify("payment_reminder", invoice)
+            return "sent"
+        if region == "CA":
+            return "sent"
+        return None
+    if dry_run:
+        return None
+    try:
+        _send("payment_reminder", invoice)
+        return "sent"
+    except Exception:
+        return "failed"
+
+
+def _process_invoice(invoice, dry_run, escalate, notify_sales, region):
+    """Process a single invoice and return 'sent', 'failed', or *None*."""
+    amount = invoice.get("amount")
+    if amount is None:
+        return None
+    if Decimal(str(amount)) <= Decimal("0"):
+        return None
+    if invoice.get("status") != "unpaid":
+        return None
+
+    days_overdue = invoice.get("days_overdue", 0)
+    if days_overdue > 30:
+        return _handle_overdue(invoice, dry_run, escalate, notify_sales, region)
+    if days_overdue > 7 and not dry_run:
+        _send("payment_reminder", invoice)
+        return "sent"
+    return None
+
+
 def send_reminders(
     invoices: list[dict],
     dry_run: bool,
     escalate: bool,
     notify_sales: bool,
     region: str,
-    retries: int = 3,
 ) -> dict:
-    """Send the reminder batch.
-
-    NEW ISSUE 1 - python:S3776 (cognitive complexity too high). The nesting
-    below is over the threshold of 15.
-
-    NEW ISSUE 2 - python:S1481 (unused local variable) - `skipped_ids`.
-
-    NEW ISSUE 3 - python:S112 / bare except swallowing every error.
-    """
+    """Send the reminder batch."""
     sent = 0
     failed = 0
-    skipped_ids = []
 
     for invoice in invoices:
-        amount = invoice.get("amount")
-        if amount is not None:
-            if Decimal(str(amount)) > Decimal("0"):
-                if invoice.get("status") == "unpaid":
-                    if invoice.get("days_overdue", 0) > 30:
-                        if escalate:
-                            if region == "US":
-                                if notify_sales:
-                                    _notify("payment_reminder", invoice)
-                                    sent += 1
-                                else:
-                                    sent += 1
-                            elif region == "CA":
-                                sent += 1
-                        else:
-                            if not dry_run:
-                                try:
-                                    _send("payment_reminder", invoice)
-                                    sent += 1
-                                except:  # noqa: E722
-                                    failed += 1
-                    else:
-                        if invoice.get("days_overdue", 0) > 7:
-                            if not dry_run:
-                                _send("payment_reminder", invoice)
-                                sent += 1
+        result = _process_invoice(invoice, dry_run, escalate, notify_sales, region)
+        if result == "sent":
+            sent += 1
+        elif result == "failed":
+            failed += 1
 
     return {"sent": sent, "failed": failed}
 
