@@ -2,7 +2,7 @@
 
 Target: **45–60 minutes**, single call, developer audience.
 
-Repo: `vinod-org/sonar-python-workshop` · Sonar project: `itmethods-inc_sonar-python-workshop`
+Repo: `vinod-itmethods/sonar-python-workshop` · Sonar project: `itmethods-inc_sonar-python-workshop`
 
 ---
 
@@ -143,7 +143,7 @@ exactly this:
 2. **pytest writes the reports** —
    > "Sonar does not run your tests. pytest writes `coverage.xml` and
    > `junit.xml`, and the scanner imports them. Order is mandatory."
-3. **`sonarqube-scan-action@v5` reads them**
+3. **`sonarqube-scan-action@v6` reads them**
 
 When the job finishes, refresh the PR. Show:
 

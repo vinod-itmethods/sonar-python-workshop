@@ -3,7 +3,7 @@
 #
 # WHAT THIS DEMONSTRATES
 #   1. pytest runs the unit tests and WRITES the coverage + JUnit reports.
-#   2. SonarSource/sonarqube-scan-action@v5 scans the code and IMPORTS those
+#   2. SonarSource/sonarqube-scan-action@v6 scans the code and IMPORTS those
 #      reports into SonarQube Cloud.
 #   3. On a pull request, SonarQube Cloud posts back:
 #        - a "SonarQube Cloud" check run (the quality gate status), and
