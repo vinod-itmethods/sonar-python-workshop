@@ -169,16 +169,63 @@ jobs:
           # here overrides the file, which makes it a handy live-demo lever.
           args: >
             -Dsonar.qualitygate.wait=false
-          # DEMO TOGGLE: flip the above to
-          #     -Dsonar.qualitygate.wait=true
-          # and the step BLOCKS until SonarQube finishes computing the gate,
-          # then FAILS the job if the gate failed. That turns the quality gate
-          # into a hard merge blocker - pair it with a branch protection rule
-          # requiring this check to pass.
-          #
-          # It is set to false by default here so the demo pipeline always
-          # goes green and you stay in control of the narrative. Switch it to
-          # true when you want to show the gate actually stopping a merge.
+
+      # =====================================================================
+      # ===  THE BLOCKING SWITCH - ENABLE THIS LIVE DURING THE DEMO  ========
+      # =====================================================================
+      #
+      # RIGHT NOW: the scan above runs with -Dsonar.qualitygate.wait=false.
+      # It analyses, it decorates the PR, it reports every new issue - and the
+      # pipeline still goes GREEN. Analysis is INFORMATIONAL only.
+      #
+      # That is deliberate for the demo: developers see the full report without
+      # feeling ambushed, and you stay in control of the narrative.
+      #
+      # ------------------------------------------------------------------
+      # TO MAKE THE QUALITY GATE BLOCK THE PIPELINE, do BOTH of these:
+      # ------------------------------------------------------------------
+      #
+      # (1) Change the `args:` above from:
+      #         -Dsonar.qualitygate.wait=false
+      #     to:
+      #         -Dsonar.qualitygate.wait=true
+      #
+      #     The scan step then WAITS for SonarQube Cloud to finish computing
+      #     the gate (usually 10-30s) and EXITS NON-ZERO if it failed. The job
+      #     turns red.
+      #
+      # (2) Uncomment the step below. It is belt-and-braces: it fails the job
+      #     with an explicit, readable message instead of a bare scanner exit
+      #     code, which is much clearer on a projector.
+      #
+      # THEN, to stop the merge itself (not just fail the job):
+      #     GitHub -> Settings -> Branches -> Add branch protection rule for
+      #     `main` -> "Require status checks to pass" -> select BOTH:
+      #         - "Test & SonarQube Scan"   (this job)
+      #         - "SonarQube Cloud"         (the check the Sonar App posts)
+      #
+      #     The Merge button then greys out until the gate passes. THAT is the
+      #     moment worth showing - the difference between a dashboard that
+      #     reports and a control that enforces.
+      #
+      # SAY THIS OUT LOUD when you flip it:
+      #   "Nothing about the analysis changed. The same issues were already
+      #    being found and posted on every PR. The only thing that changed is
+      #    whether anyone is allowed to ignore them."
+      #
+      # - name: Enforce SonarQube quality gate
+      #   # Requires -Dsonar.qualitygate.wait=true above, otherwise the scan
+      #   # step does not wait and there is no gate result to read yet.
+      #   if: always()
+      #   run: |
+      #     echo "Quality gate status is reported by the scan step above."
+      #     echo "If the gate FAILED, that step has already exited non-zero"
+      #     echo "and this job is red - which is what blocks the merge once"
+      #     echo "branch protection requires this check."
+      #     echo ""
+      #     echo "Project: https://sonarcloud.io/dashboard?id=vinod-itmethods_sonar-python-workshop"
+      #
+      # =====================================================================
 
       # ---------------------------------------------------------------------
       # STEP 5 - Publish test results in the GitHub UI (nice-to-have)
