@@ -12,3 +12,8 @@ pytest-cov>=5.0
 # importable, so install them in CI even though the app is never served.
 flask>=3.0
 requests>=2.31
+# Needed by src/invoice/session.py. Sonar's Python analyzer resolves types
+# better when third-party packages are importable, and several crypto rules
+# only fire when it can see the real API being called.
+pyjwt>=2.8
+cryptography>=42.0
