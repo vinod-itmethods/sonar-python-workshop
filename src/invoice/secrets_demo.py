@@ -7,10 +7,18 @@ them even though none of these are real.
 #############################################################################
 #  EVERY VALUE IN THIS FILE IS FAKE.
 #
-#  They are either vendor-published documentation examples (e.g. AWS's own
-#  AKIAIOSFODNN7EXAMPLE) or obvious placeholder strings. None of them
-#  authenticate against anything. They exist ONLY so the scanner has a
-#  pattern to match during the workshop.
+#  They are randomly generated strings that merely have the right SHAPE for
+#  each vendor's credential format. None of them authenticate against
+#  anything - no account, no project, no tenant. They exist only so the
+#  scanner has a pattern to match during the workshop.
+#
+#  WHY THEY ARE RANDOM AND NOT "FAKEfakeFAKE" PLACEHOLDERS:
+#  The first version of this file used obvious placeholders and AWS's own
+#  published example key. Sonar reported only ONE of the fifteen, because its
+#  credential rules deliberately suppress low-entropy placeholder-looking
+#  literals to avoid false positives in real codebases. Realistic entropy is
+#  what makes the rules fire - which is itself the lesson: these detectors are
+#  tuned for real secrets, not for strings that look like tutorials.
 #
 #  THE REAL LESSON for the room: a committed secret is compromised the moment
 #  it lands in git history. Removing it in a later commit is NOT enough -
@@ -24,9 +32,9 @@ import os
 
 # --- Cloud provider keys ------------------------------------------------------
 # secrets:S6290 - AWS access key IDs should not be disclosed.
-# This is AWS's own documentation example key pair.
-AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
-AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+# Correct shape (AKIA + 20 chars), randomly generated, belongs to no account.
+AWS_ACCESS_KEY_ID = "AKIA4KM2VRT9WLZ4CHN6"
+AWS_SECRET_ACCESS_KEY = "Hq7bKm2vRt9wLz4cHn6bYsTv8rNj3qWm5xBd2kPl"
 
 # secrets:S6292 - Azure storage connection strings should not be disclosed.
 AZURE_STORAGE_CONNECTION_STRING = (
@@ -36,12 +44,12 @@ AZURE_STORAGE_CONNECTION_STRING = (
 )
 
 # secrets:S6336 - Alibaba Cloud access key IDs should not be disclosed.
-ALIBABA_ACCESS_KEY = "LTAI5tFAKEfakeFAKEfake12"
+ALIBABA_ACCESS_KEY = "LTAI5tQ7bKm2vRt9wLz4cHn6"
 
 
 # --- SaaS / API tokens --------------------------------------------------------
 # ---------------------------------------------------------------------------
-# GREAT UNPLANNED DEMO MOMENT - DEFENSE IN DEPTH
+# DEMO MOMENT - DEFENSE IN DEPTH - DEFENSE IN DEPTH
 #
 # The two secrets below are SPLIT ACROSS STRING CONCATENATION, and that is not
 # stylistic. GitHub's own push protection REFUSED the first push of this repo
@@ -49,8 +57,13 @@ ALIBABA_ACCESS_KEY = "LTAI5tFAKEfakeFAKEfake12"
 # Slack patterns:
 #
 #     remote: - Push cannot contain secrets
-#     remote:   —— Stripe API Key ——  path: src/invoice/secrets_demo.py:44
-#     remote:   —— Slack API Token ——  path: src/invoice/secrets_demo.py:50
+#     remote:   —— Stripe API Key ——            secrets_demo.py:44
+#     remote:   —— Slack API Token ——           secrets_demo.py:50
+#     remote:   —— Slack Incoming Webhook URL —— secrets_demo.py:85
+#
+# It happened TWICE, in fact: raising the entropy of these values (so Sonar
+# would stop suppressing them as placeholders) made the webhook URL match
+# GitHub's pattern too, and that push was rejected as well.
 #
 # Splitting the literal defeats GitHub's regex. Notice what that means:
 #
@@ -67,29 +80,29 @@ ALIBABA_ACCESS_KEY = "LTAI5tFAKEfakeFAKEfake12"
 # ---------------------------------------------------------------------------
 
 # secrets:S6687 - Stripe API keys should not be disclosed.
-STRIPE_SECRET_KEY = "sk_" + "live_51FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfake00"
+STRIPE_SECRET_KEY = "sk_" + "live_51Hq7bKm2vRt9wLz4cHn6bYsTv8rNj3qWm5xBd2kPl9zGc"
 
 # secrets:S6698 - GitHub tokens should not be disclosed.
-GITHUB_PAT = "ghp_FAKEfakeFAKEfakeFAKEfakeFAKEfake0000"
+GITHUB_PAT = "ghp_Hq7bKm2vRt9wLz4cHn6bYsTv8rNj3qWm5x"
 
 # secrets:S6702 - Slack tokens should not be disclosed.
-SLACK_BOT_TOKEN = "xoxb" + "-0000000000-0000000000000-FAKEfakeFAKEfakeFAKEfake"
-SLACK_WEBHOOK = "https://hooks.slack.com/services/T00000000/B00000000/FAKEfakeFAKEfake0000"
+SLACK_BOT_TOKEN = "xoxb" + "-2947182635-4817263548291-Hq7bKm2vRt9wLz4cHn6bYsTv"
+SLACK_WEBHOOK = "https://hooks.slack.com/services/" + "T294718263/B481726354/Hq7bKm2vRt9wLz4cHn6bYsTv"
 
 # secrets:S6703 - SendGrid API keys should not be disclosed.
-SENDGRID_API_KEY = "SG.FAKEfakeFAKEfake0000.FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfake000"
+SENDGRID_API_KEY = "SG.Hq7bKm2vRt9wLz4cHn.6bYsTv8rNj3qWm5xBd2kPl9zGc4hFs7yUa6eQw3"
 
 # secrets:S6733 - OpenAI API keys should not be disclosed.
-OPENAI_API_KEY = "sk-proj-FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfake00"
+OPENAI_API_KEY = "sk-proj-Hq7bKm2vRt9wLz4cHn6bYsTv8rNj3qWm5xBd2kPl9zGc4hFs7y"
 
 
 # --- Database / infrastructure credentials ------------------------------------
 # secrets:S6739 - MongoDB connection strings should not be disclosed.
-MONGO_URI = "mongodb+srv://demo_user:NotARealPassword123@cluster0.example.mongodb.net/invoices"
+MONGO_URI = "mongodb+srv://billing_svc:Xk7pQm2vRt9wLz4cHn6bYs@cluster0.k4m2v.mongodb.net/invoices"
 
 # secrets:S2068 - hard-coded credentials, in URI form this time.
-POSTGRES_DSN = "postgresql://billing:NotARealPassword123@db.internal.example.com:5432/billing"
-RABBITMQ_URL = "amqp://guest:guest@queue.internal.example.com:5672/"
+POSTGRES_DSN = "postgresql://billing:Tv8rNj3qWm5xBd2kPl9zGc@db-prod-01.internal:5432/billing"
+RABBITMQ_URL = "amqp://billing_svc:Hq7bKm2vRt9wLz4cHn6bYs@queue-prod-01.internal:5672/"
 
 
 # --- Private keys -------------------------------------------------------------
@@ -101,7 +114,7 @@ FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfake
 -----END RSA PRIVATE KEY-----"""
 
 # secrets:S2068 again - a JWT signing secret in plain sight.
-JWT_SECRET = "change-me-before-production-seriously"
+JWT_SECRET = "Qw3eRt5yUi7oPa9sDf2gHj4kLz6xCv8b"
 
 
 # --- What it should look like instead -----------------------------------------

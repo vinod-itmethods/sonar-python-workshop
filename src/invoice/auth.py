@@ -18,14 +18,25 @@ import os
 import subprocess
 
 # ISSUE - python:S2068 ("hard-coded credentials are security-sensitive").
-# This becomes a Vulnerability (Blocker) in SonarQube Cloud and is the single
-# most effective thing to show a room of developers.
+# This becomes a Vulnerability in SonarQube Cloud and is the single most
+# effective thing to show a room of developers.
+#
+# WHY THESE VALUES LOOK RANDOM RATHER THAN SAYING "fake-password":
+# Sonar deliberately SUPPRESSES literals that look like obvious placeholders -
+# anything containing "changeme", "not-a-real", "example", "foo" and similar -
+# because in real codebases those are false positives. The first version of
+# this file used "hunter2-not-a-real-password" and Sonar correctly ignored it,
+# so the demo had nothing to show.
+#
+# These are high-entropy random strings with no vendor prefix: Sonar flags them
+# as credentials, but they match no real provider format, so they are not
+# secrets and GitHub push protection does not block them either.
 #
 # THE FIX (uncomment this, delete the two lines below it, to show the gate
 # flipping from FAILED to PASSED on a follow-up commit):
 # DB_PASSWORD = os.environ["BILLING_DB_PASSWORD"]
-DB_PASSWORD = "hunter2-not-a-real-password"
-API_TOKEN = "sk_demo_0000000000000000000000000000"
+DB_PASSWORD = "Xk7pQm2vRt9wLz4cHn6bYs"
+API_TOKEN = "Tv8rNj3qWm5xBd2kPl9zGc4hFs7yUa6e"
 
 
 def hash_password(password: str) -> str:

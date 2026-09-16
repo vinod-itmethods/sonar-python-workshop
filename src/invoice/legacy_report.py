@@ -20,11 +20,16 @@ from __future__ import annotations
 from decimal import Decimal
 
 
-def monthly_summary(rows: list[dict]) -> dict:
+def monthly_summary(rows: list[dict], tax_rate: Decimal = Decimal("0.13")) -> dict:
     """Aggregate invoice rows for a month."""
     total = Decimal("0")
+    tax_total = Decimal("0")
     count = 0
     skipped = 0
+    largest = Decimal("0")
+    smallest = Decimal("999999")
+    currencies = set()
+    customers = set()
     for row in rows:
         if row.get("status") != "paid":
             skipped += 1
@@ -33,26 +38,51 @@ def monthly_summary(rows: list[dict]) -> dict:
         if amount is None:
             skipped += 1
             continue
-        total += Decimal(str(amount))
+        value = Decimal(str(amount))
+        if value < 0:
+            skipped += 1
+            continue
+        total += value
+        tax_total += value * tax_rate
         count += 1
+        if value > largest:
+            largest = value
+        if value < smallest:
+            smallest = value
+        currency = row.get("currency")
+        if currency is not None:
+            currencies.add(currency)
+        customer = row.get("customer_id")
+        if customer is not None:
+            customers.add(customer)
     average = total / count if count else Decimal("0")
     return {
         "period": "month",
         "total": total,
+        "tax_total": tax_total,
         "count": count,
         "skipped": skipped,
+        "largest": largest,
+        "smallest": smallest if count else Decimal("0"),
+        "currencies": sorted(currencies),
+        "unique_customers": len(customers),
         "average": average,
     }
 
 
-def quarterly_summary(rows: list[dict]) -> dict:
+def quarterly_summary(rows: list[dict], tax_rate: Decimal = Decimal("0.13")) -> dict:
     """Aggregate invoice rows for a quarter.
 
-    DUPLICATE of monthly_summary - only the "period" literal differs.
-    """
+    DUPLICATE of monthly_summary - only the period literal differs. Now well
+    over Sonar's ~100-token minimum duplicated-block size, so it registers."""
     total = Decimal("0")
+    tax_total = Decimal("0")
     count = 0
     skipped = 0
+    largest = Decimal("0")
+    smallest = Decimal("999999")
+    currencies = set()
+    customers = set()
     for row in rows:
         if row.get("status") != "paid":
             skipped += 1
@@ -61,27 +91,51 @@ def quarterly_summary(rows: list[dict]) -> dict:
         if amount is None:
             skipped += 1
             continue
-        total += Decimal(str(amount))
+        value = Decimal(str(amount))
+        if value < 0:
+            skipped += 1
+            continue
+        total += value
+        tax_total += value * tax_rate
         count += 1
+        if value > largest:
+            largest = value
+        if value < smallest:
+            smallest = value
+        currency = row.get("currency")
+        if currency is not None:
+            currencies.add(currency)
+        customer = row.get("customer_id")
+        if customer is not None:
+            customers.add(customer)
     average = total / count if count else Decimal("0")
     return {
         "period": "quarter",
         "total": total,
+        "tax_total": tax_total,
         "count": count,
         "skipped": skipped,
+        "largest": largest,
+        "smallest": smallest if count else Decimal("0"),
+        "currencies": sorted(currencies),
+        "unique_customers": len(customers),
         "average": average,
     }
 
 
-def annual_summary(rows: list[dict]) -> dict:
+def annual_summary(rows: list[dict], tax_rate: Decimal = Decimal("0.13")) -> dict:
     """Aggregate invoice rows for a year.
 
-    DUPLICATE again. The obvious refactor is one `_summarize(rows, period)`
-    helper - a good thing to ask Claude to do live at the end of the session.
-    """
+    DUPLICATE again. The obvious refactor is one _summarize(rows, period)
+    helper - a good thing to ask Claude to do live at the end of the session."""
     total = Decimal("0")
+    tax_total = Decimal("0")
     count = 0
     skipped = 0
+    largest = Decimal("0")
+    smallest = Decimal("999999")
+    currencies = set()
+    customers = set()
     for row in rows:
         if row.get("status") != "paid":
             skipped += 1
@@ -90,13 +144,33 @@ def annual_summary(rows: list[dict]) -> dict:
         if amount is None:
             skipped += 1
             continue
-        total += Decimal(str(amount))
+        value = Decimal(str(amount))
+        if value < 0:
+            skipped += 1
+            continue
+        total += value
+        tax_total += value * tax_rate
         count += 1
+        if value > largest:
+            largest = value
+        if value < smallest:
+            smallest = value
+        currency = row.get("currency")
+        if currency is not None:
+            currencies.add(currency)
+        customer = row.get("customer_id")
+        if customer is not None:
+            customers.add(customer)
     average = total / count if count else Decimal("0")
     return {
         "period": "year",
         "total": total,
+        "tax_total": tax_total,
         "count": count,
         "skipped": skipped,
+        "largest": largest,
+        "smallest": smallest if count else Decimal("0"),
+        "currencies": sorted(currencies),
+        "unique_customers": len(customers),
         "average": average,
     }

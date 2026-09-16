@@ -176,13 +176,25 @@ Go to the project overview, `main` branch.
 
 Open the pickle RCE in `web.py`. Show the taint path visualisation.
 
-**Security Hotspots tab** — different thing, say so explicitly:
+**Security Hotspots tab** — heads up: **this tab is currently EMPTY (0 hotspots).**
 
-> "Hotspots aren't bugs. They're *security-sensitive* code that needs a human
-> decision. The SHA-1 checksum in `crypto_utils.py` — if that's hashing
-> passwords, it's a disaster. If it's a cache key, it's fine."
+Under SonarQube Cloud's current Clean Code taxonomy, the rules that used to be
+hotspots here — weak hash (`S4790`), insecure PRNG (`S2245`), debug mode
+(`S4507`), publicly writable tmp dir (`S5443`) — are all reported as
+**Vulnerabilities** instead. They *are* being found; they're just on the
+Security tab, not this one.
 
-Mark one hotspot as **Safe** with a justification. Show it disappear.
+So **do not open this tab expecting content.** Either skip it, or open it
+deliberately and explain the distinction, which is still worth teaching:
+
+> "Sonar used to split these out as *hotspots* — security-sensitive code
+> needing a human judgement call rather than a definite bug. That taxonomy has
+> been folded into the main issue list. The judgement call still exists though:
+> the SHA-1 checksum in `crypto_utils.py` is a disaster if it's hashing
+> passwords, and completely fine if it's a cache key."
+
+Then demo the triage workflow on any **Vulnerability** instead — set one to
+**Won't Fix** / **Safe** with a justification and show it disappear.
 
 > "And because I'm in connected mode, that triage syncs down to my IDE. I won't
 > see it locally again. Triage once, not once per developer."
