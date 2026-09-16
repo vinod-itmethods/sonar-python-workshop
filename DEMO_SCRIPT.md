@@ -2,7 +2,7 @@
 
 Target: **45–60 minutes**, single call, developer audience.
 
-Repo: `vinod-itmethods/sonar-python-workshop` · Sonar project: `itmethods-inc_sonar-python-workshop`
+Repo: `vinod-itmethods/sonar-python-workshop` · Sonar project: `vinod-itmethods_sonar-python-workshop`
 
 ---
 

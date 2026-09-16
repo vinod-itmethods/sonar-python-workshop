@@ -25,7 +25,7 @@
   // ---------------------------------------------------------------------------
   "sonarlint.connectedMode.project": {
     "connectionId": "itmethods-inc",
-    "projectKey": "itmethods-inc_sonar-python-workshop"
+    "projectKey": "vinod-itmethods_sonar-python-workshop"
   },
 
   // Tell the analyzer which interpreter to use for Python rules. Adjust if
