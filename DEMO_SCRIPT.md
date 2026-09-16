@@ -166,6 +166,79 @@ toggle in `ci.yml`:
 
 ---
 
+## Act 4b — The big PR: volume, duplication, and the Remediation Agent (8 min)
+
+**PR #3** — <https://github.com/vinod-itmethods/sonar-python-workshop/pull/3>
+
+858 new lines across 5 new modules. Use this one when you want scale, and when
+you want new code to explore in the IDE **after merging**.
+
+**VERIFIED gate result — four conditions failing:**
+
+| Condition | Actual | Required |
+|---|---|---|
+| Coverage on New Code | **7.7%** | ≥ 80% |
+| Duplication on New Code | **15.9%** | ≤ 3% |
+| Reliability Rating on New Code | **C** | A |
+| Security Rating on New Code | **E** | A |
+
+**Pipeline: still GREEN.**
+
+This PR trips **duplication**, which PR #1 could not — the four 45-line
+exporters in `reporting.py` are what do it. So show duplication here, not on
+PR #1.
+
+The file to open for maximum effect is `src/invoice/admin_console.py`:
+
+> "Three separate routes to remote code execution in one 125-line file.
+> `eval` on request data. `pickle.loads` on request data. `os.system` with
+> string interpolation. Sonar rates all three Blocker."
+
+### The Remediation Agent — check whether you want to show this
+
+The bot comment on this PR carries a **"Fix automatically"** checkbox:
+
+> 🛠️ **Remediation Agent ready** — Fix automatically
+> *Creates a separate PR with fixes for eligible issues*
+
+Ticking it makes Sonar open a **new PR containing the fixes**. That is a
+stronger story than per-issue AI CodeFix, because it is agentic remediation at
+PR scale rather than one lightbulb at a time.
+
+**Decide in advance whether to tick it live.** Two risks worth knowing:
+
+- It generates a real PR against this repo. Fine here, but do not tick it by
+  reflex if you have reset the repo to a known state for the session.
+- Many issues in this PR are *architecturally* wrong, not typo-wrong. `eval`
+  on user input has no local fix — the endpoint should not exist. Expect the
+  agent to fix the mechanical ones (MD5, `hmac.compare_digest`, cookie flags,
+  bare `except`) and leave the hard ones. **That is a good outcome to narrate
+  honestly** rather than hide:
+
+> "It fixed the mechanical ones. It did not rewrite the admin console, because
+> the fix there isn't a line change — the endpoint shouldn't exist. That's the
+> real boundary: agents are very good at the known-pattern fixes, and the
+> judgement calls still come back to you."
+
+If you would rather not generate PRs live, just point at the checkbox and
+describe it.
+
+### Merging, for the IDE segment
+
+Merge PR #3 before the IDE portion if you want a large body of freshly-merged
+code to explore in connected mode:
+
+```bash
+gh pr merge 3 --squash
+git checkout main && git pull
+```
+
+After merging, `main` carries all 5 new modules, so opening any of them in VS
+Code shows real findings immediately — including the taint-analysis issues that
+only appear in connected mode.
+
+---
+
 ## Act 5 — The full picture in the UI (10 min)
 
 Go to the project overview, `main` branch.
