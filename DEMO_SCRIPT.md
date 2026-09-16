@@ -35,6 +35,20 @@ Scroll slowly. Let them react.
 
 That frames everything that follows as prevention, not reporting.
 
+**Bonus — a true story, and it's worth telling.** GitHub's push protection
+actually *refused* the first push of this repo. It caught the Stripe key and
+the Slack token. So we split those two literals across string concatenation
+(see the comment block in `secrets_demo.py`) and the push went straight
+through.
+
+> "Push protection caught the obvious form. One concatenation defeated it —
+> because it's matching patterns on diff text. Sonar analyses the *code*, so it
+> still reports both. These are layers, not alternatives: push protection stops
+> the careless commit, Sonar stops the clever one."
+
+This lands well because it's real, it happened during setup, and it pre-empts
+the "we already have GitHub secret scanning" objection before anyone raises it.
+
 ---
 
 ## Act 2 — Sonar for IDE, connected mode (10 min)
