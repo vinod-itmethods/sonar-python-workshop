@@ -40,18 +40,10 @@ API_TOKEN = "Tv8rNj3qWm5xBd2kPl9zGc4hFs7yUa6e"
 
 
 def hash_password(password: str) -> str:
-    """Hash a user password.
-
-    ISSUE - python:S4790 ("using weak hashing algorithms is security
-    sensitive"). MD5 is unsalted and broken for passwords.
-
-    THE FIX: use a slow, salted KDF. Uncomment to demo the gate turning green:
-    # import hashlib
-    # return hashlib.scrypt(
-    #     password.encode(), salt=os.urandom(16), n=2**14, r=8, p=1
-    # ).hex()
-    """
-    return hashlib.md5(password.encode()).hexdigest()  # noqa: S324
+    """Hash a user password using a slow, salted KDF (scrypt)."""
+    return hashlib.scrypt(
+        password.encode(), salt=os.urandom(16), n=2**14, r=8, p=1
+    ).hex()
 
 
 def verify_token(supplied: str) -> bool:

@@ -19,7 +19,8 @@ import pickle
 import subprocess
 
 import requests
-from flask import Flask, redirect, request, send_file
+from flask import Flask, jsonify, redirect, request, send_file, send_from_directory
+from markupsafe import escape
 
 app = Flask(__name__)
 
@@ -47,7 +48,7 @@ def render_invoice():
     # return render_template("invoice.html", name=customer_name)
     """
     customer_name = request.args.get("name", "")
-    return f"<h1>Invoice for {customer_name}</h1>"  # taint sink
+    return f"<h1>Invoice for {escape(customer_name)}</h1>"
 
 
 @app.route("/invoice/download")
@@ -66,7 +67,7 @@ def download_invoice():
     # return send_file(target)
     """
     filename = request.args.get("file", "invoice.pdf")
-    return send_file(os.path.join("/var/invoices", filename))  # taint sink
+    return send_from_directory("/var/invoices", filename)
 
 
 @app.route("/invoice/fetch-logo")
@@ -116,8 +117,12 @@ def export_invoices():
     # subprocess.run(["/usr/local/bin/invoice-export", "--format", fmt],
     #                check=True, timeout=60)
     """
+    ALLOWED_FORMATS = {"csv", "json", "xml", "pdf"}
     fmt = request.form.get("format", "csv")
-    subprocess.run(f"/usr/local/bin/invoice-export --format {fmt}", shell=True)  # sink
+    if fmt not in ALLOWED_FORMATS:
+        return "invalid format", 400
+    subprocess.run(["/usr/local/bin/invoice-export", "--format", fmt],
+                   check=True, timeout=60)
     return "export started", 202
 
 
@@ -125,17 +130,12 @@ def export_invoices():
 def redirect_after_pay():
     """Bounce the user somewhere after payment.
 
-    ISSUE - python:S5146 ("HTTP request redirections should not be open to
-    forging attacks"). An open redirect turns our trusted domain into a
-    phishing launchpad.
-
-    THE FIX: only accept a relative path, or match against known routes:
-    # target = request.args.get("next", "/")
-    # if not target.startswith("/") or target.startswith("//"):
-    #     target = "/"
-    # return redirect(target)
+    Only accept a safe relative path to prevent open-redirect attacks.
     """
-    return redirect(request.args.get("next", "/"))  # taint sink
+    target = request.args.get("next", "/")
+    if not target.startswith("/") or target.startswith("//"):
+        target = "/"
+    return redirect(target)
 
 
 @app.route("/invoice/search")
@@ -151,11 +151,11 @@ def search_invoices():
     # )
     """
     term = request.args.get("q", "")
-    query = "SELECT id FROM invoices WHERE note LIKE '%" + term + "%'"  # sink
-    return {"query": query}
+    query = "SELECT id FROM invoices WHERE note LIKE %s"
+    return jsonify({"query": query, "params": [f"%{term}%"]})
 
 
 if __name__ == "__main__":
     # ISSUE - python:S4818 / binding to all interfaces with debug on.
     # THE FIX: app.run(host="127.0.0.1", debug=False)
-    app.run(host="0.0.0.0", debug=DEBUG_MODE)  # noqa: S104
+    app.run(host="127.0.0.1", debug=DEBUG_MODE)

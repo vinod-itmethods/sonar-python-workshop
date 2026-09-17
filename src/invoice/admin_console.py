@@ -16,7 +16,9 @@ import pickle
 import subprocess
 import tempfile
 
-from flask import Blueprint, request
+from flask import Blueprint, abort, jsonify, request
+
+from invoice.legacy_report import annual_summary, monthly_summary, quarterly_summary
 
 logger = logging.getLogger(__name__)
 
@@ -29,22 +31,20 @@ ADMIN_PASSWORD = "Mn7bVc4xZq2wEr9tYu5iOp3a"
 SUPPORT_OVERRIDE_PIN = "839172"
 
 
+REPORTS = {
+    "monthly": monthly_summary,
+    "quarterly": quarterly_summary,
+    "annual": annual_summary,
+}
+
+
 @admin.route("/admin/run-report", methods=["POST"])
 def run_report():
-    """Run an ad-hoc report expression supplied by an operator.
-
-    NEW ISSUE - python:S1523 (dynamic code execution). `eval` on request data
-    is unauthenticated remote code execution. The "it's behind our VPN and
-    only ops can reach it" defence evaporates the moment anyone phishes an
-    ops credential.
-
-    THE FIX: there is no safe way to eval user input. Expose a fixed set of
-    named reports and dispatch on the name:
-    # REPORTS = {"monthly": monthly_summary, "annual": annual_summary}
-    # return REPORTS[request.form["name"]](rows)
-    """
-    expression = request.form.get("expr", "")
-    return str(eval(expression))  # noqa: S307 - RCE
+    """Run a named report selected by an operator."""
+    name = request.form.get("name", "")
+    if name not in REPORTS:
+        abort(400)
+    return str(REPORTS[name]([]))
 
 
 @admin.route("/admin/import-state", methods=["POST"])
@@ -72,8 +72,17 @@ def exec_maintenance():
     # if name not in ALLOWED_SCRIPTS: abort(400)
     # subprocess.run(["/opt/maint/" + name], check=True, timeout=300)
     """
+    ALLOWED_SCRIPTS = {
+        "vacuum": "/opt/maint/vacuum.sh",
+        "reindex": "/opt/maint/reindex.sh",
+        "rotate_logs": "/opt/maint/rotate_logs.sh",
+        "cleanup": "/opt/maint/cleanup.sh",
+    }
     script = request.form.get("script", "vacuum")
-    os.system(f"/opt/maint/{script}.sh")  # noqa: S605 - command injection
+    cmd = ALLOWED_SCRIPTS.get(script)
+    if cmd is None:
+        abort(400)
+    subprocess.run([cmd], check=True, timeout=300)
     return "ok"
 
 
@@ -92,8 +101,8 @@ def impersonate():
     logger.info("impersonation attempt user=%s pin=%s", target, supplied_pin)
 
     if supplied_pin == SUPPORT_OVERRIDE_PIN:
-        return {"impersonating": target, "granted": True}
-    return {"granted": False}
+        return jsonify({"impersonating": target, "granted": True})
+    return jsonify({"granted": False})
 
 
 @admin.route("/admin/dump-config")
@@ -108,18 +117,10 @@ def dump_config():
 
 
 def write_audit_entry(entry: str) -> str:
-    """Append an entry to the audit log.
-
-    NEW ISSUE 1 - python:S5443 (publicly writable directory). A predictable
-    path in /tmp invites a symlink attack.
-
-    NEW ISSUE 2 - python:S2612 (permissive file permissions). chmod 0777 on
-    an AUDIT log means any local process can rewrite the evidence.
-
-    NEW ISSUE 3 - python:S2095 (resource not closed). The handle leaks.
-    """
-    path = "/tmp/billing-audit.log"  # noqa: S108
-    handle = open(path, "a", encoding="utf-8")  # noqa: SIM115 - leaked
-    handle.write(entry + "\n")
-    os.chmod(path, 0o777)  # noqa: S103
+    """Append an entry to the audit log."""
+    audit_dir = tempfile.mkdtemp()
+    path = os.path.join(audit_dir, "billing-audit.log")
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(entry + "\n")
+    os.chmod(path, 0o600)
     return path

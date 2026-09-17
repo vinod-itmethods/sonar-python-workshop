@@ -53,41 +53,23 @@ def checksum(data: bytes) -> str:
     justification. Showing that workflow is valuable - it teaches the team that
     Sonar findings are reviewable, not gospel.
     """
-    return hashlib.sha1(data).hexdigest()  # noqa: S324
+    return hashlib.sha256(data).hexdigest()
 
 
 def legacy_tls_context() -> ssl.SSLContext:
     """Build an SSL context for an old partner API.
 
-    ISSUE - python:S4423 ("weak SSL/TLS protocols should not be used") and
-    python:S4830 (certificate validation disabled). This context accepts
-    anything, so it provides encryption with zero authentication - a
-    man-in-the-middle walks straight in.
-
-    THE FIX: use the secure default and let the library pick the protocol:
-    # return ssl.create_default_context()
+    Uses the secure default context which negotiates the highest protocol
+    version that both the client and server support (TLS 1.2+), validates
+    server certificates, and verifies hostnames.
     """
-    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    return context
+    return ssl.create_default_context()
 
 
 def write_temp_invoice(contents: str) -> str:
-    """Write an invoice to a temporary file.
-
-    ISSUE - python:S5443 ("using publicly writable directories is security
-    sensitive"). A predictable path in /tmp is a symlink-attack / race
-    condition waiting to happen.
-
-    THE FIX: let the stdlib create it securely with 0600 permissions:
-    # with tempfile.NamedTemporaryFile(
-    #     mode="w", suffix=".txt", delete=False
-    # ) as handle:
-    #     handle.write(contents)
-    #     return handle.name
-    """
-    path = "/tmp/invoice-draft.txt"  # noqa: S108
-    with open(path, "w", encoding="utf-8") as handle:
+    """Write an invoice to a temporary file."""
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False
+    ) as handle:
         handle.write(contents)
-    return path
+        return handle.name
