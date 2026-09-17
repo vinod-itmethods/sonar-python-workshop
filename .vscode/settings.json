@@ -24,7 +24,7 @@
   // Never put a token in settings.json - it would be committed.
   // ---------------------------------------------------------------------------
   "sonarlint.connectedMode.project": {
-    "connectionId": "itmethods-inc",
+    "connectionId": "vinod-mac",
     "projectKey": "vinod-itmethods_sonar-python-workshop"
   },
 
