@@ -35,6 +35,9 @@ on:
     # shows no meaningful numbers.
     branches:
       - main
+      # TEMPORARY: added so pushes to dev trigger a scan for the
+      # sonar.branch.name branch-pinning test. Remove after testing.
+      - dev
   pull_request:
     # `types` defaults to opened/synchronize/reopened, which is what we want:
     # every push to the PR branch re-scans and re-decorates.
