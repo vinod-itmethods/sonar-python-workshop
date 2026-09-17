@@ -53,7 +53,7 @@ def capture_payment(invoice_id: str, amount: float, card_token: str) -> dict:
     reaction.
     """
     total = amount * 1.13  # float money arithmetic
-    idempotency_key = hashlib.md5(f"{invoice_id}:{amount}".encode()).hexdigest()
+    idempotency_key = hashlib.sha256(f"{invoice_id}:{amount}".encode()).hexdigest()
 
     logger.info("capturing payment token=%s amount=%s", card_token, total)
 

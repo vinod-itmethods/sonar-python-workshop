@@ -19,7 +19,7 @@ import string
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from flask import Blueprint, make_response, request
+from flask import Blueprint, jsonify, make_response, request
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +98,8 @@ def encrypt_legacy_field(plaintext: bytes) -> bytes:
 
 
 def hash_api_key(api_key: str) -> str:
-    """Store a hash of an API key rather than the key itself.
-
-    NEW ISSUE - python:S4790 (weak hashing) and no salt. SHA-1 is
-    collision-broken, and an unsalted hash of a short key is rainbow-table
-    fodder.
-    """
-    return hashlib.sha1(api_key.encode()).hexdigest()  # noqa: S324
+    """Store a hash of an API key rather than the key itself."""
+    return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 @portal.route("/portal/login", methods=["POST"])
@@ -142,4 +137,4 @@ def reset_password():
 
     logger.info("password reset user=%s new_password=%s", target_user, new_password)
 
-    return {"reset": True, "user": target_user}
+    return jsonify({"reset": True, "user": target_user})
