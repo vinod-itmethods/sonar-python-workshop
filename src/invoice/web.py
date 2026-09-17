@@ -19,7 +19,7 @@ import pickle
 import subprocess
 
 import requests
-from flask import Flask, redirect, request, send_file
+from flask import Flask, jsonify, redirect, render_template_string, request, send_file, send_from_directory
 
 app = Flask(__name__)
 
@@ -47,7 +47,7 @@ def render_invoice():
     # return render_template("invoice.html", name=customer_name)
     """
     customer_name = request.args.get("name", "")
-    return f"<h1>Invoice for {customer_name}</h1>"  # taint sink
+    return render_template_string("<h1>Invoice for {{ name }}</h1>", name=customer_name)
 
 
 @app.route("/invoice/download")
@@ -66,7 +66,7 @@ def download_invoice():
     # return send_file(target)
     """
     filename = request.args.get("file", "invoice.pdf")
-    return send_file(os.path.join("/var/invoices", filename))  # taint sink
+    return send_from_directory("/var/invoices", filename)
 
 
 @app.route("/invoice/fetch-logo")
@@ -116,8 +116,12 @@ def export_invoices():
     # subprocess.run(["/usr/local/bin/invoice-export", "--format", fmt],
     #                check=True, timeout=60)
     """
+    ALLOWED_FORMATS = {"csv", "json", "xml", "pdf"}
     fmt = request.form.get("format", "csv")
-    subprocess.run(f"/usr/local/bin/invoice-export --format {fmt}", shell=True)  # sink
+    if fmt not in ALLOWED_FORMATS:
+        return "invalid format", 400
+    subprocess.run(["/usr/local/bin/invoice-export", "--format", fmt],
+                   check=True, timeout=60)
     return "export started", 202
 
 
@@ -135,7 +139,10 @@ def redirect_after_pay():
     #     target = "/"
     # return redirect(target)
     """
-    return redirect(request.args.get("next", "/"))  # taint sink
+    target = request.args.get("next", "/")
+    if not target.startswith("/") or target.startswith("//"):
+        target = "/"
+    return redirect(target)
 
 
 @app.route("/invoice/search")
@@ -152,7 +159,7 @@ def search_invoices():
     """
     term = request.args.get("q", "")
     query = "SELECT id FROM invoices WHERE note LIKE '%" + term + "%'"  # sink
-    return {"query": query}
+    return jsonify({"query": query})
 
 
 if __name__ == "__main__":
