@@ -17,3 +17,5 @@ requests>=2.31
 # only fire when it can see the real API being called.
 pyjwt>=2.8
 cryptography>=42.0
+
+# Branch-pinning test: trivial change to trigger a PR scan.
