@@ -137,13 +137,6 @@ locally is the most convincing single moment of the demo.
 
 ---
 
-## Demo runbook
-
-See **[DEMO_SCRIPT.md](DEMO_SCRIPT.md)** for the full timed walkthrough with
-talking points, the exact PR to open, and the AI CodeFix sequence.
-
----
-
 ## The best AI CodeFix targets
 
 Ranked by how well they demo:
