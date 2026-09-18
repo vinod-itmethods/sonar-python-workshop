@@ -16,11 +16,25 @@ import pickle
 import subprocess
 import tempfile
 
-from flask import Blueprint, request
+from flask import Blueprint, abort, jsonify, make_response, request
+
+from invoice.reporting import (
+    build_daily_export,
+    build_monthly_export,
+    build_regulatory_export,
+    build_weekly_export,
+)
 
 logger = logging.getLogger(__name__)
 
 admin = Blueprint("admin", __name__)
+
+REPORTS = {
+    "daily": build_daily_export,
+    "weekly": build_weekly_export,
+    "monthly": build_monthly_export,
+    "regulatory": build_regulatory_export,
+}
 
 # NEW ISSUE - python:S2068 (hardcoded credentials), and a shared admin
 # password is an accountability problem as well as a security one: every
@@ -31,20 +45,15 @@ SUPPORT_OVERRIDE_PIN = "839172"
 
 @admin.route("/admin/run-report", methods=["POST"])
 def run_report():
-    """Run an ad-hoc report expression supplied by an operator.
-
-    NEW ISSUE - python:S1523 (dynamic code execution). `eval` on request data
-    is unauthenticated remote code execution. The "it's behind our VPN and
-    only ops can reach it" defence evaporates the moment anyone phishes an
-    ops credential.
-
-    THE FIX: there is no safe way to eval user input. Expose a fixed set of
-    named reports and dispatch on the name:
-    # REPORTS = {"monthly": monthly_summary, "annual": annual_summary}
-    # return REPORTS[request.form["name"]](rows)
-    """
-    expression = request.form.get("expr", "")
-    return str(eval(expression))  # noqa: S307 - RCE
+    """Run a named report selected by the operator."""
+    name = request.form.get("name", "")
+    report_fn = REPORTS.get(name)
+    if report_fn is None:
+        abort(400, "Unknown report name")
+    result = report_fn([])
+    response = make_response(str(result))
+    response.mimetype = "text/plain"
+    return response
 
 
 @admin.route("/admin/import-state", methods=["POST"])
@@ -92,8 +101,8 @@ def impersonate():
     logger.info("impersonation attempt user=%s pin=%s", target, supplied_pin)
 
     if supplied_pin == SUPPORT_OVERRIDE_PIN:
-        return {"impersonating": target, "granted": True}
-    return {"granted": False}
+        return jsonify({"impersonating": target, "granted": True})
+    return jsonify({"granted": False})
 
 
 @admin.route("/admin/dump-config")
