@@ -107,19 +107,21 @@ def dump_config():
     return dict(os.environ)
 
 
+_audit_dir: str | None = None
+
+
+def _get_audit_dir() -> str:
+    """Return a private temporary directory for audit logs, creating it once."""
+    global _audit_dir  # noqa: PLW0603
+    if _audit_dir is None:
+        _audit_dir = tempfile.mkdtemp(prefix="billing-audit-")
+    return _audit_dir
+
+
 def write_audit_entry(entry: str) -> str:
-    """Append an entry to the audit log.
-
-    NEW ISSUE 1 - python:S5443 (publicly writable directory). A predictable
-    path in /tmp invites a symlink attack.
-
-    NEW ISSUE 2 - python:S2612 (permissive file permissions). chmod 0777 on
-    an AUDIT log means any local process can rewrite the evidence.
-
-    NEW ISSUE 3 - python:S2095 (resource not closed). The handle leaks.
-    """
-    path = "/tmp/billing-audit.log"  # noqa: S108
-    handle = open(path, "a", encoding="utf-8")  # noqa: SIM115 - leaked
-    handle.write(entry + "\n")
-    os.chmod(path, 0o777)  # noqa: S103
+    """Append an entry to the audit log."""
+    path = os.path.join(_get_audit_dir(), "billing-audit.log")
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(entry + "\n")
+    os.chmod(path, 0o600)
     return path
