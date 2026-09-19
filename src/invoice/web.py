@@ -158,4 +158,4 @@ def search_invoices():
 if __name__ == "__main__":
     # ISSUE - python:S4818 / binding to all interfaces with debug on.
     # THE FIX: app.run(host="127.0.0.1", debug=False)
-    app.run(host="0.0.0.0", debug=DEBUG_MODE)  # noqa: S104
+    app.run(host="127.0.0.1", debug=DEBUG_MODE)

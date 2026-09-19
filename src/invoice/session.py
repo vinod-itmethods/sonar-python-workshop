@@ -19,7 +19,7 @@ import string
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from flask import Blueprint, make_response, request
+from flask import Blueprint, jsonify, make_response, request
 
 logger = logging.getLogger(__name__)
 
@@ -142,4 +142,4 @@ def reset_password():
 
     logger.info("password reset user=%s new_password=%s", target_user, new_password)
 
-    return {"reset": True, "user": target_user}
+    return jsonify({"reset": True, "user": target_user})
