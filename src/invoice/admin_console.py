@@ -25,7 +25,7 @@ admin = Blueprint("admin", __name__)
 # NEW ISSUE - python:S2068 (hardcoded credentials), and a shared admin
 # password is an accountability problem as well as a security one: every
 # action in the audit log says "admin".
-ADMIN_PASSWORD = "Mn7bVc4xZq2wEr9tYu5iOp3a"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 SUPPORT_OVERRIDE_PIN = "839172"
 
 
