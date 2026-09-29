@@ -19,6 +19,8 @@ Sonar for IDE connected mode.
 
 ---
 
+testing
+
 ## Project key facts
 
 | | |
