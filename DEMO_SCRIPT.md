@@ -8,10 +8,11 @@ Repo: `vinod-itmethods/sonar-python-workshop` · Sonar project: `vinod-itmethods
 
 ## Pre-flight (do this 15 minutes before the call)
 
-- [ ] `SONAR_TOKEN` is in GitHub Actions secrets
-- [ ] Automatic Analysis is **OFF** in Sonar project settings
-- [ ] One CI run has already completed on `main` — **this is essential.** Without
-      a main-branch baseline, PR decoration has nothing to compare against
+- [x] `SONAR_TOKEN` is in GitHub Actions secrets — **done**
+- [x] Automatic Analysis is **OFF** in Sonar project settings — **done**
+- [x] `main` analysed (baseline exists: 25 vulns, 11% duplication, 17 tests) — **done**
+- [x] GitHub App permissions granted, PR decoration verified posting — **done**
+- [x] PR #1 open and analysed, gate FAILED / pipeline GREEN — **done**
 - [ ] VS Code open on the repo, connected mode active, Sonar panel visible
 - [ ] Browser tabs pre-opened: Sonar project overview · Sonar Security tab ·
       GitHub Actions · the demo PR (created but *not* yet discussed)
@@ -121,17 +122,38 @@ watch you update the assertion.
 
 ## Act 4 — CI, PR decoration, and the bot (12 min)
 
-Commit the fix on a branch and push:
+**PR #1 is already open and analysed:**
+<https://github.com/vinod-itmethods/sonar-python-workshop/pull/1>
+
+It adds `src/invoice/reminders.py` plus a `late_fee_for()` function in the
+previously-clean `calculator.py`. Open it in the browser, then switch to the
+**Actions** tab and open the completed job.
+
+**VERIFIED NUMBERS (measured, not estimated) — what the bot comment says:**
+
+| Condition | Actual | Required | |
+|---|---|---|---|
+| Coverage on New Code | **21.5%** | ≥ 80% | FAILED |
+| Reliability Rating on New Code | **C** | A | FAILED |
+| Security Rating on New Code | **E** | A | FAILED |
+| Maintainability Rating on New Code | A | A | ok |
+| Duplication on New Code | 0.0% | ≤ 3% | ok |
+
+**Quality Gate: FAILED. GitHub Actions job: GREEN.**
+
+Lead with that contradiction — it is the most important slide of the demo:
+
+> "The gate failed. Three conditions red. And the pipeline is green, the merge
+> button works, nothing is stopping me. Right now Sonar is *advice*."
+
+Then, if you want to reopen the branch story live instead:
 
 ```bash
 git checkout -b fix/gold-tier-discount
-git add -A
-git commit -m "fix: gold tier was silently getting the silver discount rate"
-git push -u origin fix/gold-tier-discount
-gh pr create --fill
+git add -A && git commit -m "fix: gold tier was getting the silver rate"
+git push -u origin fix/gold-tier-discount && gh pr create --fill
 ```
 
-Open the PR in the browser. Switch to the **Actions** tab, open the running job.
 
 Walk the workflow while it runs — `.github/workflows/ci.yml` is commented for
 exactly this:
@@ -145,10 +167,22 @@ exactly this:
    > `junit.xml`, and the scanner imports them. Order is mandatory."
 3. **`sonarqube-scan-action@v6` reads them**
 
-When the job finishes, refresh the PR. Show:
+When the job finishes, refresh the PR. Show all THREE surfaces it posts to:
 
-- the **SonarQube Cloud** check run
-- the **bot comment** listing new issues, coverage on new code, and gate status
+1. the **SonarCloud Code Analysis** check run — "Quality Gate failed" with each
+   failed condition linked straight to the offending measure
+2. the **bot comment** from `sonarqubecloud` listing new issues, coverage on new
+   code and gate status
+3. **GitHub's own Security tab** — Sonar also exports SARIF into GitHub Code
+   Scanning, so findings show up as native GitHub alerts with inline PR
+   annotations. There are currently **4** on this PR (`S2068` hardcoded
+   credential, `S2245` insecure random, `S4790` weak hash, `secrets:S7552`).
+
+That third one is worth pausing on for a security-minded audience:
+
+> "These are also landing in GitHub's native Security tab as code scanning
+> alerts. So if your team already lives in that tab, Sonar meets them there —
+> you don't have to send everyone to a second dashboard."
 
 > "Nobody had to go look at a dashboard. The analysis came to the code review."
 

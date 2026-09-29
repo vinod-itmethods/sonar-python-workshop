@@ -48,3 +48,23 @@ def apply_tax(amount: Decimal, tax_rate: Decimal) -> Decimal:
     if tax_rate < 0:
         raise ValueError("tax_rate must not be negative")
     return _round_money(amount * (Decimal("1") + tax_rate))
+
+
+def late_fee_for(amount: Decimal, days_overdue: int, is_repeat: bool) -> Decimal:
+    """Work out a late fee for an overdue invoice.
+
+    DEMO NOTE: calculator.py is the CLEAN, 100%-covered module on main. This
+    function is added on the PR branch on purpose, so the demo can show that
+    "new code" is about CHANGED LINES - a previously spotless file can still
+    fail the gate if what you add to it is poor.
+
+    NEW ISSUE - python:S1871 (two branches with the same implementation) and
+    an uncovered branch, since no test exercises is_repeat=True.
+    """
+    if days_overdue <= 0:
+        return Decimal("0.00")
+    if is_repeat:
+        return _round_money(amount * Decimal("0.05"))
+    if days_overdue > 60:
+        return _round_money(amount * Decimal("0.05"))
+    return _round_money(amount * Decimal("0.02"))
