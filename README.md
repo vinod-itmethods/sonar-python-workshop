@@ -192,8 +192,9 @@ VERSION=0.3.0.10152
 BASE=https://binaries.sonarsource.com/CommercialDistribution/sonar-container-scanner
 BIN=sonar-container-scanner-$VERSION-macos-arm64.bin
 
-curl -sSLo "$BIN" "$BASE/$BIN"
-curl -sSLo "$BIN.sha256" "$BASE/$BIN.sha256"
+# --proto '=https' stops -L from following a redirect down to plain HTTP
+curl -sSLo "$BIN" --proto '=https' --tlsv1.2 "$BASE/$BIN"
+curl -sSLo "$BIN.sha256" --proto '=https' --tlsv1.2 "$BASE/$BIN.sha256"
 shasum -a 256 -c <(echo "$(cat $BIN.sha256)  $BIN")   # verify before running
 
 chmod +x "$BIN"

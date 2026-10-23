@@ -91,8 +91,12 @@ jobs:
           BASE="https://binaries.sonarsource.com/CommercialDistribution/sonar-container-scanner"
           BIN="sonar-container-scanner-${SCANNER_VERSION}-linux-x64.bin"
 
-          curl -sSLo "$BIN" "${BASE}/${BIN}"
-          curl -sSLo "${BIN}.sha256" "${BASE}/${BIN}.sha256"
+          # --proto '=https' refuses to follow a redirect to plain HTTP.
+          # Without it, -L would happily downgrade - and we are about to make
+          # this file executable and run it. Sonar flags this as
+          # githubactions:S6506, and it is right to.
+          curl -sSLo "$BIN" --proto '=https' --tlsv1.2 "${BASE}/${BIN}"
+          curl -sSLo "${BIN}.sha256" --proto '=https' --tlsv1.2 "${BASE}/${BIN}.sha256"
 
           EXPECTED="$(tr -d '[:space:]' < "${BIN}.sha256")"
           ACTUAL="$(sha256sum "$BIN" | awk '{print $1}')"
