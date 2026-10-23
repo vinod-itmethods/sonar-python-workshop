@@ -166,6 +166,79 @@ Ranked by how well they demo:
 
 ---
 
+## Container scanning (beta)
+
+`Dockerfile` + `.github/workflows/container-scan.yml` demonstrate SonarQube
+Cloud's container scanning alongside the code analysis.
+
+**It answers a different question than `ci.yml`.** That workflow analyses
+source; this one analyses the image you ship. A spotless codebase can still
+produce an image full of vulnerable OS packages — the base here is pinned to
+an old Debian 11 Python release on purpose so there is a real backlog to show.
+
+**How it works:** `sonar-container-scanner` runs `syft` against the built
+image to produce a CycloneDX SBOM, then submits that SBOM to SonarQube Cloud
+for matching. Your layers and source never leave the runner — only the package
+inventory does. That is usually the first thing a security team asks.
+
+Results appear under **Container images** in the SonarQube Cloud sidebar, not
+on the project dashboard.
+
+### Running it locally
+
+```bash
+# macOS arm64 - check binaries.sonarsource.com for the current version
+VERSION=0.3.0.10152
+BASE=https://binaries.sonarsource.com/CommercialDistribution/sonar-container-scanner
+BIN=sonar-container-scanner-$VERSION-macos-arm64.bin
+
+curl -sSLo "$BIN" "$BASE/$BIN"
+curl -sSLo "$BIN.sha256" "$BASE/$BIN.sha256"
+shasum -a 256 -c <(echo "$(cat $BIN.sha256)  $BIN")   # verify before running
+
+chmod +x "$BIN"
+mkdir -p ~/.local/bin && mv "$BIN" ~/.local/bin/sonar-container-scanner
+export PATH="$HOME/.local/bin:$PATH"
+
+docker build -t invoice-demo:local .
+
+export SONAR_CONTAINER_SCANNER_ORG=itmethods-inc
+export SONAR_CONTAINER_SCANNER_TOKEN=<your-token>
+sonar-container-scanner invoice-demo:local --format table --fail-on none
+```
+
+### ⚠️ Check the exit code, not the issues array
+
+A configuration failure (missing token, bad token, image not found) still
+emits JSON shaped like this:
+
+```json
+{ "issues": [], "errors": [ { "kind": "backendConfig", ... } ] }
+```
+
+A pipeline checking `.issues | length == 0` would read a **broken scan as a
+passing scan**. Verified against 0.3.0.10152. Exit codes are reliable:
+
+| Exit | Meaning |
+|---|---|
+| `0` | Scan ran, nothing at or above `--fail-on` |
+| `1` | Scan ran, findings at or above `--fail-on` |
+| `2` | Scan did **not** run — config error, auth denied, image missing |
+
+The workflow fails loudly on exit 2 for exactly this reason.
+
+### Scope limits worth stating out loud
+
+- Base OS support: RHEL, Debian 11+, Ubuntu, Alpine. **Distroless,
+  Wolfi/Chainguard and BusyBox are not covered yet.**
+- No license-risk analysis for container images, unlike code SCA.
+- **Beta.** Don't build a hard merge gate on it without saying so.
+- Don't start at `--fail-on high` on an existing image estate — you'll block
+  every pipeline on day one over base-image CVEs nobody can patch that
+  afternoon. Start at `blocker`, fix the base image, then tighten.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause |

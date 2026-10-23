@@ -1,0 +1,221 @@
+###############################################################################
+# .github/workflows/container-scan.yml
+#
+# SonarQube Cloud CONTAINER SCANNING (beta at time of writing).
+#
+# HOW THIS DIFFERS FROM ci.yml
+#   ci.yml analyses your SOURCE CODE. This workflow analyses the IMAGE you
+#   ship. They answer different questions, and a clean codebase can still
+#   produce an image full of vulnerable OS packages.
+#
+# HOW IT WORKS UNDER THE HOOD - worth knowing before a customer asks:
+#   sonar-container-scanner runs `syft` against the built image to produce a
+#   CycloneDX SBOM, then submits THAT SBOM to SonarQube Cloud, which matches
+#   the package inventory against vulnerability data.
+#
+#   So your layers and source never leave the runner - only the list of
+#   packages and versions does. That is usually the first question a
+#   security-minded customer asks, and the answer is a good one.
+#
+# SETUP
+#   [ ] SONAR_TOKEN already exists as a repo secret (ci.yml uses the same one)
+#   [ ] Results appear in SonarQube Cloud under "Container images" in the
+#       sidebar - NOT on the normal project dashboard
+#
+# SCOPE LIMITS TO BE HONEST ABOUT
+#   - Supported base OSes: RHEL, Debian 11+, Ubuntu, Alpine.
+#     Distroless, Wolfi/Chainguard and BusyBox are not covered yet.
+#   - No license-risk analysis for container images (unlike code SCA).
+#   - Beta. Do not build a hard merge gate on it without saying that out loud.
+###############################################################################
+
+name: Container Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  # Lets you run it on demand during a demo without pushing a commit.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  # Pin the scanner version explicitly. It is beta software - letting it float
+  # means a demo can break between rehearsal and the live call.
+  SCANNER_VERSION: 0.3.0.10152
+  IMAGE_NAME: invoice-demo
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  container-scan:
+    name: Build & Scan Container Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # STEP 1 - Build the image
+      #
+      # The scanner reads an image that already exists LOCALLY. It does not
+      # pull from a registry itself, so the build (or a `docker pull`) has to
+      # happen first.
+      # ---------------------------------------------------------------------
+      - name: Build image
+        run: |
+          docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
+          docker images "${IMAGE_NAME}"
+
+      # ---------------------------------------------------------------------
+      # STEP 2 - Install sonar-container-scanner
+      #
+      # There is no official GitHub Action for this yet, so we download the
+      # binary directly. We verify the published SHA-256 before making it
+      # executable - downloading and running an unverified binary in CI is
+      # exactly the sort of thing Sonar itself would flag.
+      # ---------------------------------------------------------------------
+      - name: Install sonar-container-scanner
+        run: |
+          set -euo pipefail
+          BASE="https://binaries.sonarsource.com/CommercialDistribution/sonar-container-scanner"
+          BIN="sonar-container-scanner-${SCANNER_VERSION}-linux-x64.bin"
+
+          curl -sSLo "$BIN" "${BASE}/${BIN}"
+          curl -sSLo "${BIN}.sha256" "${BASE}/${BIN}.sha256"
+
+          EXPECTED="$(tr -d '[:space:]' < "${BIN}.sha256")"
+          ACTUAL="$(sha256sum "$BIN" | awk '{print $1}')"
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::checksum mismatch for $BIN"
+            echo "expected: $EXPECTED"
+            echo "actual:   $ACTUAL"
+            exit 1
+          fi
+          echo "checksum verified"
+
+          chmod +x "$BIN"
+          mkdir -p "$HOME/.local/bin"
+          mv "$BIN" "$HOME/.local/bin/sonar-container-scanner"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Show scanner version
+        run: sonar-container-scanner --version
+
+      # ---------------------------------------------------------------------
+      # STEP 3 - Scan
+      #
+      # READ THIS BEFORE COPYING THIS STEP INTO A REAL PIPELINE.
+      #
+      # We capture the EXIT CODE and branch on it, rather than parsing the
+      # JSON, because of a genuine trap in the current beta:
+      #
+      #   A configuration failure (missing token, bad token, image not found)
+      #   still emits a JSON document shaped like this:
+      #
+      #       { "issues": [], "errors": [ { "kind": "backendConfig", ... } ] }
+      #
+      #   A pipeline that checks `.issues | length == 0` and calls that "clean"
+      #   would read a BROKEN SCAN AS A PASSING SCAN. Verified locally against
+      #   0.3.0.10152.
+      #
+      # Exit codes observed:
+      #   0 = scan completed, nothing at or above --fail-on
+      #   1 = scan completed, findings at or above --fail-on
+      #   2 = the scan did not happen (config error, image missing, auth denied)
+      #
+      # --fail-on none means "report everything, gate on nothing", which keeps
+      # the demo pipeline green. See the blocking switch below.
+      # ---------------------------------------------------------------------
+      - name: Scan container image
+        id: scan
+        env:
+          SONAR_CONTAINER_SCANNER_ORG: itmethods-inc
+          SONAR_CONTAINER_SCANNER_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set +e
+          sonar-container-scanner "${IMAGE_NAME}:${IMAGE_TAG}" \
+            --registry docker.io \
+            --repository vinod-itmethods/invoice-demo \
+            --tag "${IMAGE_TAG}" \
+            --format table \
+            --fail-on none \
+            | tee scan-output.txt
+          CODE=${PIPESTATUS[0]}
+          set -e
+
+          echo "exit_code=${CODE}" >> "$GITHUB_OUTPUT"
+          echo "scanner exited with ${CODE}"
+
+          # Exit 2 means the scan never ran. Always fail loudly on that - a
+          # silently skipped security scan is worse than no scan at all,
+          # because everyone assumes it ran.
+          if [ "${CODE}" -eq 2 ]; then
+            echo "::error::Container scan did not run (exit 2). Check SONAR_TOKEN, the organization key, and that the image exists locally."
+            exit 1
+          fi
+
+      # ---------------------------------------------------------------------
+      # STEP 4 - Surface the result in the GitHub UI
+      # ---------------------------------------------------------------------
+      - name: Publish scan summary
+        if: always()
+        run: |
+          {
+            echo "## Container scan — \`${IMAGE_NAME}:${IMAGE_TAG}\`"
+            echo ""
+            echo "Scanner exit code: \`${{ steps.scan.outputs.exit_code }}\`"
+            echo ""
+            echo '```'
+            cat scan-output.txt 2>/dev/null || echo "(no output captured)"
+            echo '```'
+            echo ""
+            echo "Full results: **Container images** in the SonarQube Cloud sidebar."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload scan output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-scan-output
+          path: scan-output.txt
+          retention-days: 7
+
+      # =====================================================================
+      # ===  THE BLOCKING SWITCH - same idea as ci.yml  =====================
+      # =====================================================================
+      #
+      # RIGHT NOW: --fail-on none, so the scan reports everything and the
+      # pipeline stays green. Informational only.
+      #
+      # TO MAKE CONTAINER VULNERABILITIES BLOCK THE PIPELINE:
+      #
+      #   (1) In the scan step above, change:
+      #           --fail-on none
+      #       to one of:
+      #           --fail-on blocker     (strictest realistic starting point)
+      #           --fail-on high        (the scanner's own default)
+      #
+      #   (2) Remove the `set +e` / exit-code handling, or extend the `if` to
+      #       also fail on exit 1:
+      #
+      #           if [ "${CODE}" -ne 0 ]; then exit "${CODE}"; fi
+      #
+      #   (3) GitHub -> Settings -> Branches -> require the
+      #       "Build & Scan Container Image" check on `main`.
+      #
+      # ADVICE WORTH GIVING CUSTOMERS: do not start at --fail-on high on an
+      # existing image estate. You will block every pipeline on day one over
+      # CVEs in a base image nobody can patch that afternoon. Start at
+      # `blocker`, fix the base image, then tighten.
+      # =====================================================================
