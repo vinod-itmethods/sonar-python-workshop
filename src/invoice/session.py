@@ -98,13 +98,8 @@ def encrypt_legacy_field(plaintext: bytes) -> bytes:
 
 
 def hash_api_key(api_key: str) -> str:
-    """Store a hash of an API key rather than the key itself.
-
-    NEW ISSUE - python:S4790 (weak hashing) and no salt. SHA-1 is
-    collision-broken, and an unsalted hash of a short key is rainbow-table
-    fodder.
-    """
-    return hashlib.sha1(api_key.encode()).hexdigest()  # noqa: S324
+    """Store a hash of an API key rather than the key itself."""
+    return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 @portal.route("/portal/login", methods=["POST"])
